@@ -16,7 +16,7 @@ services:
     container_name: lifequest-frontend
     restart: always
     ports:
-      - "80:80"
+      - "8080:80"   # раньше было 80:80
     depends_on:
       - backend
     networks:

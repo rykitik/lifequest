@@ -1,5 +1,14 @@
 version: "3.9"
 services:
+  mongo:
+    image: mongo:6
+    container_name: lifequest-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo-data:/data/db
+
   backend:
     build: ./backend
     container_name: lifequest-backend
@@ -8,8 +17,8 @@ services:
       - "3000:3000"
     env_file:
       - ./backend/.env
-    networks:
-      - lifequest_net
+    depends_on:
+      - mongo
 
   frontend:
     build: ./frontend
@@ -19,9 +28,5 @@ services:
       - "8080:80"   # раньше было 80:80
     depends_on:
       - backend
-    networks:
-      - lifequest_net
-
-networks:
-  lifequest_net:
-    driver: bridge
+volumes:
+  mongo-data:

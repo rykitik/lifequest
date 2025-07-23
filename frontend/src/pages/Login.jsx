@@ -1,8 +1,10 @@
 import { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -11,9 +13,8 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("/api/auth/login", { email, password });
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+      const res = await api.post("/auth/login", { email, password });
+      login(res.data.user, res.data.token);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.error || "Ошибка входа");
@@ -49,10 +50,7 @@ export default function Login() {
         </form>
         <p className="text-sm text-center mt-4">
           Нет аккаунта?{" "}
-          <a
-            href="/register"
-            className="text-blue-600 hover:underline"
-          >
+          <a href="/register" className="text-blue-600 hover:underline">
             Зарегистрироваться
           </a>
         </p>

@@ -1,30 +1,19 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
+  const { user, logout } = useAuth();
   const [quests, setQuests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [newQuest, setNewQuest] = useState("");
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
-  // Получение токена
-  const token = localStorage.getItem("token");
-
-  // Выход из аккаунта
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
-  // Загрузка квестов
   const fetchQuests = async () => {
     try {
-      const res = await axios.get("/api/quests", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/quests");
       setQuests(res.data);
     } catch (err) {
       setError(err.response?.data?.error || "Ошибка загрузки квестов");
@@ -33,16 +22,11 @@ export default function Dashboard() {
     }
   };
 
-  // Создание квеста
   const handleAddQuest = async (e) => {
     e.preventDefault();
     if (!newQuest.trim()) return;
     try {
-      const res = await axios.post(
-        "/api/quests",
-        { title: newQuest, type: "daily" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.post("/quests", { title: newQuest, type: "daily" });
       setQuests((prev) => [...prev, res.data]);
       setNewQuest("");
     } catch (err) {
@@ -50,15 +34,9 @@ export default function Dashboard() {
     }
   };
 
-  // Завершение квеста
   const handleCompleteQuest = async (id) => {
     try {
-      const res = await axios.patch(
-        `/api/quests/${id}/complete`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-    );
-      console.log(res);
+      await api.patch(`/quests/${id}/complete`);
       setQuests((prev) =>
         prev.map((q) => (q._id === id ? { ...q, completed: true } : q))
       );
@@ -68,12 +46,8 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (!token) {
-      navigate("/login");
-    } else {
-      fetchQuests();
-    }
-  }, [token, navigate]);
+    fetchQuests();
+  }, []);
 
   if (loading) return <p className="text-center mt-10">Загрузка...</p>;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
@@ -82,9 +56,9 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold">Ваши квесты</h2>
+          <h2 className="text-2xl font-bold">Привет, {user?.username || "Гость"}</h2>
           <button
-            onClick={handleLogout}
+            onClick={logout}
             className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
           >
             Выйти

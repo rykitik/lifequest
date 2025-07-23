@@ -7,7 +7,6 @@ function Header() {
           <a href="#" className="hover:underline">Главная</a>
           <a href="#" className="hover:underline">Квесты</a>
           <a href="#" className="hover:underline">Профиль</a>
-          <a href="#" className="hover:underline">Тест</a>
         </nav>
       </div>
     </header>

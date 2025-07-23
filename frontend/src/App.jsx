@@ -4,7 +4,7 @@ function App() {
   return (
     <Layout>
       <div className="text-center">
-        <h2 className="text-4xl font-bold text-blue-400">Добро пожаловать в LifeQuest</h2>
+        <h2 className="text-4xl font-bold text-blue-400">Добро пожаловать в LifeQuest!!!</h2>
         <p className="mt-4 text-gray-300">
           Заводи квесты, повышай уровень и прокачивай день!
         </p>

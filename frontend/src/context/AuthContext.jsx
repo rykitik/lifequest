@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken') || '');
   const [loading, setLoading] = useState(true);
 
-  // Устанавливаем access token в axios
+  // Обновляем заголовок Authorization для axios при изменении токена
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -21,22 +21,28 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  // Interceptor для перехвата 401 и попытки обновления токена
+  // Интерцептор для обработки 401 и автоматического обновления токена
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
-      res => res,
-      async (error) => {
+      response => response,
+      async error => {
         const originalRequest = error.config;
 
-        // Пропускаем, если уже пытались обновить токен
-        if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
+        // Если 401 и запрос еще не ретраился, и есть refreshToken — пробуем обновить
+        if (
+          error.response?.status === 401 &&
+          !originalRequest._retry &&
+          refreshToken
+        ) {
           originalRequest._retry = true;
           try {
             const res = await axios.post('/auth/refresh', { refreshToken });
-
             const newToken = res.data.token;
+
             localStorage.setItem('token', newToken);
             setToken(newToken);
+
+            // Обновляем заголовки для повторного запроса
             axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
             originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
 
@@ -54,6 +60,7 @@ export const AuthProvider = ({ children }) => {
     return () => axios.interceptors.response.eject(interceptor);
   }, [refreshToken]);
 
+  // Попытка получить данные пользователя по текущему токену
   useEffect(() => {
     const fetchUser = async () => {
       if (!token) {
@@ -64,8 +71,8 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await axios.get('/auth/me');
         setUser(res.data);
-      } catch (err) {
-        console.error('Ошибка получения пользователя:', err);
+      } catch (error) {
+        console.error('Ошибка получения пользователя:', error);
         logout();
       } finally {
         setLoading(false);
@@ -75,6 +82,7 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, [token]);
 
+  // Функция логина
   const login = async (email, password) => {
     try {
       const res = await axios.post('/auth/login', { email, password });
@@ -87,12 +95,13 @@ export const AuthProvider = ({ children }) => {
       setUser(receivedUser);
 
       return { success: true };
-    } catch (err) {
-      const message = err.response?.data?.message || 'Ошибка входа';
+    } catch (error) {
+      const message = error.response?.data?.message || 'Ошибка входа';
       return { success: false, message };
     }
   };
 
+  // Функция регистрации
   const register = async (username, email, password) => {
     try {
       const res = await axios.post('/auth/register', { username, email, password });
@@ -105,12 +114,13 @@ export const AuthProvider = ({ children }) => {
       setUser(receivedUser);
 
       return { success: true };
-    } catch (err) {
-      const message = err.response?.data?.message || 'Ошибка регистрации';
+    } catch (error) {
+      const message = error.response?.data?.message || 'Ошибка регистрации';
       return { success: false, message };
     }
   };
 
+  // Выход из аккаунта
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
@@ -129,7 +139,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        isAuthenticated: !!user,
+        isAuthenticated: Boolean(user),
       }}
     >
       {children}

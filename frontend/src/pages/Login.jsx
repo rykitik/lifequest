@@ -5,56 +5,57 @@ import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
     try {
       const res = await api.post("/auth/login", { email, password });
       login(res.data.user, res.data.token);
-      navigate("/dashboard");
+      navigate("/");
     } catch (err) {
-      setError(err.response?.data?.error || "Ошибка входа");
+      setError(err.response?.data?.message || "Ошибка входа");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-xl shadow-md w-full max-w-sm">
-        <h2 className="text-2xl font-bold mb-4 text-center">Вход</h2>
-        {error && <p className="text-red-500 text-center mb-3">{error}</p>}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-2 border rounded-md"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Пароль"
-            className="w-full p-2 border rounded-md"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700"
-          >
-            Войти
-          </button>
-        </form>
-        <p className="text-sm text-center mt-4">
-          Нет аккаунта?{" "}
-          <a href="/register" className="text-blue-600 hover:underline">
-            Зарегистрироваться
-          </a>
-        </p>
-      </div>
+    <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded shadow">
+      <h2 className="text-2xl font-bold mb-6 text-center">Вход</h2>
+      {error && <p className="text-red-600 mb-4">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full border p-2 rounded"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Пароль"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full border p-2 rounded"
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition"
+        >
+          {loading ? "Входим..." : "Войти"}
+        </button>
+      </form>
     </div>
   );
 }

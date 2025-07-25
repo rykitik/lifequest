@@ -100,6 +100,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("accessToken", at);
       localStorage.setItem("refreshToken", rt);
 
+      axios.defaults.headers.common["Authorization"] = `Bearer ${at}`;
+
       return { success: true };
     } catch (err) {
       const message = err.response?.data?.message || "Ошибка входа";
@@ -118,6 +120,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("user", JSON.stringify(registeredUser));
       localStorage.setItem("accessToken", at);
       localStorage.setItem("refreshToken", rt);
+
+      axios.defaults.headers.common["Authorization"] = `Bearer ${at}`;
 
       return { success: true };
     } catch (err) {

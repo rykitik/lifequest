@@ -1,36 +1,63 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from '../api/axios';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import axios from "../api/axios";
 
 const AuthContext = createContext();
 
-export const useAuth = () => useContext(AuthContext);
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
+    const savedUser = localStorage.getItem("user");
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken') || '');
+
+  const [accessToken, setAccessToken] = useState(() => {
+    return localStorage.getItem("accessToken") || null;
+  });
+
+  const [refreshToken, setRefreshToken] = useState(() => {
+    return localStorage.getItem("refreshToken") || null;
+  });
+
   const [loading, setLoading] = useState(true);
 
-  // Обновляем заголовок Authorization
+  // Устанавливаем accessToken в заголовках axios
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (accessToken) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
     } else {
-      delete axios.defaults.headers.common['Authorization'];
+      delete axios.defaults.headers.common["Authorization"];
     }
-  }, [token]);
+  }, [accessToken]);
 
-  // Интерцептор для обновления токена
+  // Получение пользователя по токену
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!accessToken) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await axios.get("/auth/me");
+        setUser(res.data);
+        localStorage.setItem("user", JSON.stringify(res.data));
+      } catch (error) {
+        console.error("Ошибка получения пользователя:", error);
+        logout();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [accessToken]);
+
+  // Интерцептор для обновления токена при 401
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
-      response => response,
-      async error => {
+      (response) => response,
+      async (error) => {
         const originalRequest = error.config;
-
         if (
           error.response?.status === 401 &&
           !originalRequest._retry &&
@@ -38,22 +65,20 @@ export const AuthProvider = ({ children }) => {
         ) {
           originalRequest._retry = true;
           try {
-            const res = await axios.post('/auth/refresh', { refreshToken });
-            const newToken = res.data.token;
+            const res = await axios.post("/auth/refresh", { refreshToken });
+            const { accessToken: newAccessToken } = res.data;
 
-            localStorage.setItem('token', newToken);
-            setToken(newToken);
+            setAccessToken(newAccessToken);
+            localStorage.setItem("accessToken", newAccessToken);
+            axios.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
 
-            axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-
+            originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
             return axios(originalRequest);
           } catch (refreshError) {
             logout();
             return Promise.reject(refreshError);
           }
         }
-
         return Promise.reject(error);
       }
     );
@@ -63,92 +88,61 @@ export const AuthProvider = ({ children }) => {
     };
   }, [refreshToken]);
 
-  // Получение пользователя по токену
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await axios.get('/auth/me');
-        setUser(res.data);
-        localStorage.setItem('user', JSON.stringify(res.data));
-      } catch (error) {
-        console.error('Ошибка получения пользователя:', error);
-        logout();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [token]);
-
   const login = async (email, password) => {
     try {
-      const res = await axios.post('/auth/login', { email, password });
-      const { token: accessToken, refreshToken: refresh, user: receivedUser } = res.data;
+      const res = await axios.post("/auth/login", { email, password });
+      const { user: loggedUser, accessToken: at, refreshToken: rt } = res.data;
 
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('refreshToken', refresh);
-      localStorage.setItem('user', JSON.stringify(receivedUser));
-
-      setToken(accessToken);
-      setRefreshToken(refresh);
-      setUser(receivedUser);
+      setUser(loggedUser);
+      setAccessToken(at);
+      setRefreshToken(rt);
+      localStorage.setItem("user", JSON.stringify(loggedUser));
+      localStorage.setItem("accessToken", at);
+      localStorage.setItem("refreshToken", rt);
 
       return { success: true };
-    } catch (error) {
-      const message = error.response?.data?.message || 'Ошибка входа';
+    } catch (err) {
+      const message = err.response?.data?.message || "Ошибка входа";
       return { success: false, message };
     }
   };
 
-  const register = async (username, email, password) => {
+  const register = async (email, password) => {
     try {
-      const res = await axios.post('/auth/register', { username, email, password });
-      const { token: accessToken, refreshToken: refresh, user: receivedUser } = res.data;
+      const res = await axios.post("/auth/register", { email, password });
+      const { user: registeredUser, accessToken: at, refreshToken: rt } = res.data;
 
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('refreshToken', refresh);
-      localStorage.setItem('user', JSON.stringify(receivedUser));
-
-      setToken(accessToken);
-      setRefreshToken(refresh);
-      setUser(receivedUser);
+      setUser(registeredUser);
+      setAccessToken(at);
+      setRefreshToken(rt);
+      localStorage.setItem("user", JSON.stringify(registeredUser));
+      localStorage.setItem("accessToken", at);
+      localStorage.setItem("refreshToken", rt);
 
       return { success: true };
-    } catch (error) {
-      const message = error.response?.data?.message || 'Ошибка регистрации';
+    } catch (err) {
+      const message = err.response?.data?.message || "Ошибка регистрации";
       return { success: false, message };
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    setToken('');
-    setRefreshToken('');
     setUser(null);
+    setAccessToken(null);
+    setRefreshToken(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    delete axios.defaults.headers.common["Authorization"];
   };
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        token,
-        refreshToken,
-        loading,
-        login,
-        register,
-        logout,
-        isAuthenticated: Boolean(user),
-      }}
+      value={{ user, accessToken, refreshToken, login, register, logout, loading }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -16,15 +15,15 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    try {
-      const res = await api.post("/auth/login", { email, password });
-      login(res.data.user, res.data.token);
-      navigate("/");
-    } catch (err) {
-      setError(err.response?.data?.message || "Ошибка входа");
-    } finally {
-      setLoading(false);
+
+    const result = await login(email, password);
+    if (result.success) {
+      navigate("/dashboard"); 
+    } else {
+      setError(result.message);
     }
+
+    setLoading(false);
   };
 
   return (

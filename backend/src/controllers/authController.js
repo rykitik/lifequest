@@ -1,105 +1,78 @@
-require('dotenv').config();
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Генерация access token
 const generateAccessToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
 
-// Генерация refresh token — используем ту же переменную окружения REFRESH_TOKEN_SECRET для консистентности
-const generateRefreshToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '30d' });
-};
-
-exports.generateAccessToken = generateAccessToken;
-exports.generateRefreshToken = generateRefreshToken;
-
-// Получить данные текущего пользователя (без пароля)
-exports.getMe = async (req, res) => {
+// Регистрация
+exports.register = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json(user);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+    if (!username || !email || !password) 
+      return res.status(400).json({ message: 'Все поля обязательны' });
 
-// Регистрация нового пользователя
-exports.register = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Проверка: пользователь уже существует?
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: 'Пользователь с таким email уже существует' });
-    }
+    if (existingUser)
+      return res.status(400).json({ message: 'Пользователь с таким email уже существует' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ email, password: hashedPassword });
 
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    // Сохраняем refresh токен в БД пользователя
-    user.refreshToken = refreshToken;
+    const user = new User({ username, email, password: hashedPassword });
     await user.save();
 
-    // Отправляем refresh токен в httpOnly cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      sameSite: 'Strict',
-      secure: true, // ставь true если HTTPS, иначе false для локальной разработки
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
-    });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Отправляем access токен в теле ответа
-    res.status(201).json({ accessToken });
-  } catch (err) {
-    console.error('Ошибка регистрации:', err);
-    res.status(500).json({ message: 'Ошибка сервера при регистрации' });
+    res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        xp: user.xp,
+        level: user.level,
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
 
-// Логин пользователя
+// Логин
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) 
+      return res.status(400).json({ message: 'Email и пароль обязательны' });
+
     const user = await User.findOne({ email });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Неверный логин или пароль' });
-    }
+    if (!user)
+      return res.status(400).json({ message: 'Неверный email или пароль' });
 
-    // остальной код для генерации токенов
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: 'Неверный email или пароль' });
 
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      sameSite: 'Strict',
-      secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
+      token,
       user: {
         id: user._id,
+        username: user.username,
         email: user.email,
-      },
-      accessToken,
-      refreshToken,
+        xp: user.xp,
+        level: user.level,
+      }
     });
-  } catch (err) {
-    console.error('Ошибка входа:', err);
-    res.status(500).json({ message: 'Ошибка сервера при входе' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
 
@@ -137,30 +110,5 @@ exports.refresh = async (req, res) => {
   } catch (err) {
     console.error('Ошибка обновления токена:', err);
     res.status(403).json({ message: 'Токен невалиден или истёк' });
-  }
-};
-
-// Выход пользователя (удаляем refresh токен из БД и куки)
-exports.logout = async (req, res) => {
-  try {
-    const token = req.cookies.refreshToken;
-    if (!token) return res.sendStatus(204);
-
-    const user = await User.findOne({ refreshToken: token });
-    if (user) {
-      user.refreshToken = null;
-      await user.save();
-    }
-
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      sameSite: 'Strict',
-      secure: true,
-    });
-
-    res.sendStatus(204);
-  } catch (err) {
-    console.error('Ошибка выхода:', err);
-    res.status(500).json({ message: 'Ошибка сервера при выходе' });
   }
 };

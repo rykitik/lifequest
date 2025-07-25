@@ -89,7 +89,14 @@ exports.login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    res.json({ accessToken });
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+      },
+      accessToken,
+      refreshToken,
+    });
   } catch (err) {
     console.error('Ошибка входа:', err);
     res.status(500).json({ message: 'Ошибка сервера при входе' });

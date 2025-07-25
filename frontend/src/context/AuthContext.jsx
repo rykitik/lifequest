@@ -90,8 +90,10 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+       console.log("Попытка входа:", { email, password }); // TODO: убрать
       const res = await axios.post("/auth/login", { email, password });
       const { user: loggedUser, accessToken: at, refreshToken: rt } = res.data;
+      console.log("Ответ сервера:", res.data);
 
       setUser(loggedUser);
       setAccessToken(at);
@@ -104,6 +106,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
+      console.error("Ошибка логина:", err.response?.data || err.message); // TODO: убрать
       const message = err.response?.data?.message || "Ошибка входа";
       return { success: false, message };
     }

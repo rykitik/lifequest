@@ -8,9 +8,9 @@ const generateAccessToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
 
-// Генерация refresh token — используем ту же переменную окружения REFRESH_SECRET для консистентности
+// Генерация refresh token — используем ту же переменную окружения REFRESH_TOKEN_SECRET для консистентности
 const generateRefreshToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '30d' });
+  return jwt.sign({ id: userId }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '30d' });
 };
 
 exports.generateAccessToken = generateAccessToken;
@@ -102,7 +102,7 @@ exports.refresh = async (req, res) => {
     if (!token) return res.status(401).json({ message: 'Нет токена' });
 
     // Проверяем валидность refresh токена
-    const payload = jwt.verify(token, process.env.REFRESH_SECRET);
+    const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
 
     // Ищем пользователя с таким refresh токеном
     const user = await User.findById(payload.id);

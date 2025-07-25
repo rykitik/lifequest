@@ -7,21 +7,15 @@ const User = require('../models/User');
 
 // Генерация access token
 const generateAccessToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '15m' }
-  );
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
 
-// Генерация refresh token
 const generateRefreshToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
-  );
+  return jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '30d' });
 };
+
+exports.generateAccessToken = generateAccessToken;
+exports.generateRefreshToken = generateRefreshToken;
 
 exports.getMe = async (req, res) => {
   try {

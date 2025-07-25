@@ -31,7 +31,7 @@ exports.getMe = async (req, res) => {
 // Регистрация нового пользователя
 exports.register = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
     // Проверка, что пользователь не существует
     const existingUser = await User.findOne({ username });
@@ -40,7 +40,7 @@ exports.register = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, password: hashedPassword });
+    const user = await User.create({ username, email, password: hashedPassword });
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);

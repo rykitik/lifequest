@@ -1,5 +1,3 @@
-
-
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -10,6 +8,7 @@ const generateAccessToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
 
+// Генерация refresh token — используем ту же переменную окружения REFRESH_SECRET для консистентности
 const generateRefreshToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: '30d' });
 };
@@ -17,6 +16,7 @@ const generateRefreshToken = (userId) => {
 exports.generateAccessToken = generateAccessToken;
 exports.generateRefreshToken = generateRefreshToken;
 
+// Получить данные текущего пользователя (без пароля)
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -28,12 +28,12 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// Регистрация
+// Регистрация нового пользователя
 exports.register = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Проверка: пользователь уже существует?
+    // Проверка, что пользователь не существует
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(409).json({ message: 'Пользователь уже существует' });
@@ -45,18 +45,19 @@ exports.register = async (req, res) => {
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Сохраняем refresh токен в БД
+    // Сохраняем refresh токен в БД пользователя
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Отправка токенов клиенту
+    // Отправляем refresh токен в httpOnly cookie
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       sameSite: 'Strict',
-      secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 дней
+      secure: true, // ставь true если HTTPS, иначе false для локальной разработки
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
     });
 
+    // Отправляем access токен в теле ответа
     res.status(201).json({ accessToken });
   } catch (err) {
     console.error('Ошибка регистрации:', err);
@@ -64,7 +65,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// Логин
+// Логин пользователя
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -84,7 +85,7 @@ exports.login = async (req, res) => {
       httpOnly: true,
       sameSite: 'Strict',
       secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
     res.json({ accessToken });
@@ -100,24 +101,28 @@ exports.refresh = async (req, res) => {
     const token = req.cookies.refreshToken;
     if (!token) return res.status(401).json({ message: 'Нет токена' });
 
-    const payload = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-    const user = await User.findById(payload.userId);
+    // Проверяем валидность refresh токена
+    const payload = jwt.verify(token, process.env.REFRESH_SECRET);
 
+    // Ищем пользователя с таким refresh токеном
+    const user = await User.findById(payload.id);
     if (!user || user.refreshToken !== token) {
       return res.status(403).json({ message: 'Неверный токен' });
     }
 
+    // Генерируем новые токены
     const newAccessToken = generateAccessToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
 
     user.refreshToken = newRefreshToken;
     await user.save();
 
+    // Отправляем обновленный refresh токен в куках
     res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       sameSite: 'Strict',
       secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
     res.json({ accessToken: newAccessToken });
@@ -127,7 +132,7 @@ exports.refresh = async (req, res) => {
   }
 };
 
-// Выход
+// Выход пользователя (удаляем refresh токен из БД и куки)
 exports.logout = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
@@ -142,7 +147,7 @@ exports.logout = async (req, res) => {
     res.clearCookie('refreshToken', {
       httpOnly: true,
       sameSite: 'Strict',
-      secure: true
+      secure: true,
     });
 
     res.sendStatus(204);

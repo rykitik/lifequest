@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
 
-const questSchema = new mongoose.Schema({
+const QuestSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: String,
-  xpReward: { type: Number, default: 10 },
+  type: { type: String, enum: ['daily', 'habit', 'challenge', 'gate', 'social'], required: true },
+  xp: { type: Number, default: 10 },
   completed: { type: Boolean, default: false },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
-}, { timestamps: true });
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('Quest', questSchema);
+module.exports = mongoose.model('Quest', QuestSchema);

@@ -1,28 +1,37 @@
 const Quest = require('../models/Quest');
-const User = require('../models/User');
-const { addXP } = require('../services/levelService');
 
-exports.getQuests = async (req, res) => {
-  const quests = await Quest.find({ user: req.userId });
-  res.json(quests);
+exports.getAllQuests = async (req, res) => {
+  try {
+    const quests = await Quest.find({ userId: req.userId });  // например, фильтрация по юзеру
+    res.json(quests);
+  } catch (err) {
+    console.error('Ошибка при загрузке квестов:', err);
+    res.status(500).json({ message: 'Ошибка загрузки квестов' });
+  }
 };
 
 exports.createQuest = async (req, res) => {
-  const quest = await Quest.create({ ...req.body, user: req.userId });
-  res.status(201).json(quest);
+  try {
+    const quest = new Quest({ ...req.body, userId: req.userId });
+    await quest.save();
+    res.status(201).json(quest);
+  } catch (err) {
+    console.error('Ошибка при создании квеста:', err);
+    res.status(500).json({ message: 'Ошибка создания квеста' });
+  }
 };
 
 exports.completeQuest = async (req, res) => {
-  const quest = await Quest.findById(req.params.id);
-  if (!quest || quest.user.toString() !== req.userId) {
-    return res.status(404).json({ error: 'Quest not found' });
+  try {
+    const quest = await Quest.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { completed: true },
+      { new: true }
+    );
+    if (!quest) return res.status(404).json({ message: 'Квест не найден' });
+    res.json(quest);
+  } catch (err) {
+    console.error('Ошибка при завершении квеста:', err);
+    res.status(500).json({ message: 'Ошибка завершения квеста' });
   }
-
-  quest.completed = true;
-  await quest.save();
-
-  const user = await User.findById(req.userId);
-  await addXP(user, quest.xpReward);
-
-  res.json({ message: 'Quest completed', xpGained: quest.xpReward });
 };

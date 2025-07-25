@@ -31,16 +31,16 @@ exports.getMe = async (req, res) => {
 // Регистрация нового пользователя
 exports.register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { email, password } = req.body;
 
-    // Проверка, что пользователь не существует
-    const existingUser = await User.findOne({ username });
+    // Проверка: пользователь уже существует?
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: 'Пользователь уже существует' });
+      return res.status(409).json({ message: 'Пользователь с таким email уже существует' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: hashedPassword });
+    const user = await User.create({ email, password: hashedPassword });
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
@@ -68,13 +68,14 @@ exports.register = async (req, res) => {
 // Логин пользователя
 exports.login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Неверный логин или пароль' });
     }
 
+    // остальной код для генерации токенов
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
@@ -85,7 +86,7 @@ exports.login = async (req, res) => {
       httpOnly: true,
       sameSite: 'Strict',
       secure: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     res.json({ accessToken });

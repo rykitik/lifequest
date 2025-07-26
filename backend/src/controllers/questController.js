@@ -1,4 +1,4 @@
-const Quest = require('../models/Quest');
+import Quest from '../models/Quest.js';
 
 exports.getAllQuests = async (req, res) => {
   try {

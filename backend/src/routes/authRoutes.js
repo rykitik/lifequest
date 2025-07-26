@@ -1,14 +1,11 @@
-const express = require('express');
+import express from 'express';
+import { login, refresh, logout } from '../controllers/authController.js';
+
 const router = express.Router();
 
-const authController = require('../controllers/authController');
-const authMiddleware = require('../middlewares/authMiddleware');
+router.post('/login', login);
+router.post('/refresh', refresh);
+router.post('/logout', logout);
+router.post('/resgister', register)
 
-// Роуты
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.get('/refresh', authController.refresh);
-router.get('/logout', authController.logout);
-router.get('/me', authMiddleware, authController.getMe);
-
-module.exports = router;
+export default router;

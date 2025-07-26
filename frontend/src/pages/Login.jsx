@@ -9,17 +9,10 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post("/auth/login", { email, password });
-      login(res.data.user, res.data.token);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(err.response?.data?.error || "Ошибка входа");
-    }
-
-    setLoading(false);
+  const handleLogin = async () => {
+    const res = await api.post('/auth/login', { email, password });
+    const token = res.data.accessToken;
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
   return (

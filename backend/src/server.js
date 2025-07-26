@@ -1,17 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import cookieParser from 'cookie-parser';
+// import cors from 'cors';
+import dotenv from 'dotenv';
 
+dotenv.config();
 
-const authRoutes = require('./routes/authRoutes');
-const questRoutes = require('./routes/questRoutes');
+import authRoutes from './routes/authRoutes.js';
+import questRoutes from './routes/questRoutes.js';
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Роуты
 app.use('/api/auth', authRoutes);
 app.use('/api/quests', questRoutes);
 
-module.exports = app;
+export default app;

@@ -2,7 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 // Роуты
-// import authController from '../controllers/authController.js'; TODO: неактивный
+import questController from '../controllers/questController.js';
 import authMiddleware from '../middlewares/authMiddleware.js';
 
 router.get('/', authMiddleware, questController.getAllQuests);

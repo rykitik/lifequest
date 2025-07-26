@@ -1,8 +1,8 @@
 import Quest from '../models/Quest.js';
 
-exports.getAllQuests = async (req, res) => {
+export const getAllQuests = async (req, res) => {
   try {
-    const quests = await Quest.find({ userId: req.userId });  // например, фильтрация по юзеру
+    const quests = await Quest.find({ userId: req.userId });
     res.json(quests);
   } catch (err) {
     console.error('Ошибка при загрузке квестов:', err);
@@ -10,7 +10,7 @@ exports.getAllQuests = async (req, res) => {
   }
 };
 
-exports.createQuest = async (req, res) => {
+export const createQuest = async (req, res) => {
   try {
     const quest = new Quest({ ...req.body, userId: req.userId });
     await quest.save();
@@ -21,7 +21,7 @@ exports.createQuest = async (req, res) => {
   }
 };
 
-exports.completeQuest = async (req, res) => {
+export const completeQuest = async (req, res) => {
   try {
     const quest = await Quest.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },

@@ -1,12 +1,11 @@
-import React, { useContext } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 const PrivateRoute = () => {
-  const { user, isLoading } = useContext(AuthContext);
+  const { user, loading } = useAuth(); // Используем хук вместо useContext
 
-  if (isLoading) {
-    return <div>Загрузка...</div>; // Можно заменить на спиннер
+  if (loading) {
+    return <div>Загрузка...</div>; // Лоадер во время проверки авторизации
   }
 
   return user ? <Outlet /> : <Navigate to="/login" replace />;

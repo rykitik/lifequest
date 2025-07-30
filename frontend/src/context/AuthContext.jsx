@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "../api/axios";
 
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }) => {
       });
       setUser(res.data);
     } catch (err) {
-      console.warn("Сессия истекла, попытка обновления токена...");
+      console.warn("Сессия истекла, попытка обновления токена...", err);
       await tryRefreshToken();
     } finally {
       setLoading(false);

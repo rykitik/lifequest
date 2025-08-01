@@ -1,11 +1,23 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
-  baseURL,
-  withCredentials: true, 
+baseURL: 'http://localhost:5000/api', //baseURL,
+  withCredentials: true,
 });
+
+// 👉 Добавляем accessToken в каждый запрос
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (err) => Promise.reject(err)
+);
 
 api.interceptors.response.use(
   (res) => res,
@@ -19,7 +31,7 @@ api.interceptors.response.use(
         const res = await api.post('/auth/refresh');
         const newAccessToken = res.data.accessToken;
 
-        // Обновляем header и повторяем запрос
+        localStorage.setItem('accessToken', newAccessToken);
         api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
         originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
 

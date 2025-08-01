@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
   const { login } = useAuth();
@@ -14,7 +14,7 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const res = await api.post("/auth/register", { username, email, password });
+      const res = await api.post("auth/register", { username, email, password });
       login(res.data.user, res.data.token);
       navigate("/dashboard");
     } catch (err) {

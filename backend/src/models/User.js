@@ -47,6 +47,11 @@ const UserSchema = new mongoose.Schema({
   tokenIssuedAt: {
     type: Date,
     default: Date.now
+  },
+  status: {
+    type: String,
+    default: 'active',
+    enum: ['active', 'suspended', 'banned']
   }
 }, { 
   timestamps: true,

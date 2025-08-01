@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import axios from '../api/axios';
 import { AuthContext } from './AuthContext';
 
@@ -54,50 +55,46 @@ const AuthProvider = ({ children }) => {
   }, [logout]);
 
   const fetchUser = useCallback(async () => {
-    if (!accessToken) {
-      setLoading(false);
-      return null;
+  if (!accessToken) {
+    setLoading(false);
+    return null;
+  }
+
+  try {
+    const { data } = await axios.get("/auth/me");
+    
+    // Упрощенная проверка - если есть данные пользователя, считаем активным
+    if (!data || !data.id) {
+      throw new Error("Неверный формат данных пользователя");
     }
 
-    try {
-      const { data } = await axios.get("/auth/me");
-      
-      if (!data?.id) {
-        throw new Error("Неверный формат данных пользователя");
-      }
+    const userData = {
+      id: data.id,
+      username: data.username || "",
+      email: data.email || "",
+      xp: data.xp || 0,
+      level: data.level || 1,
+      // Явно устанавливаем статус
+      status: 'active'
+    };
 
-      const userData = {
-        id: data.id,
-        username: data.username || "",
-        email: data.email || "",
-        xp: data.xp || 0,
-        level: data.level || 1,
-        ...(data.progress && { progress: data.progress }),
-      };
+    setUser(userData);
+    setError(null);
+    return userData;
+  } catch (err) {
+    console.error("Ошибка получения пользователя:", err);
+    setError(err.response?.data?.message || err.message || "Ошибка загрузки данных");
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}, [accessToken]);
 
-      setUser(userData);
-      setError(null);
-      return userData;
-    } catch (err) {
-      if (err.response?.status === 401) {
-        try {
-          await tryRefreshToken();
-          return await fetchUser();
-        } catch {
-          return null;
-        }
-      }
-
-      setError(
-        err.response?.data?.message || 
-        err.message || 
-        "Ошибка загрузки данных пользователя"
-      );
-      return null;
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error?.includes('неактивна')) {
+      toast.error(error);
     }
-  }, [accessToken, tryRefreshToken]);
+  }, [error]);
 
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -167,6 +164,10 @@ const AuthProvider = ({ children }) => {
         }
       );
 
+      if (data.user?.status !== 'active') {
+        throw new Error("Учетная запись неактивна");
+      }
+
       const receivedToken = data.accessToken || data.token;
       if (!receivedToken) {
         throw new Error("Токен не получен");
@@ -176,8 +177,9 @@ const AuthProvider = ({ children }) => {
         id: data.id,
         email: data.email,
         username: data.username,
-        xp: data.xp,
-        level: data.level
+        xp: data.xp || 0,
+        level: data.level || 1,
+        status: 'active'
       };
 
       setAccessToken(receivedToken);
@@ -234,7 +236,7 @@ const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && user.status === 'active',
         setError
       }}>
       {children}

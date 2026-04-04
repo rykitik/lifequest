@@ -2,35 +2,32 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
 const authMiddleware = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ message: 'Токен не предоставлен' });
-  }
-
   try {
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
+    const authorization = req.headers.authorization;
 
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+    if (!authorization?.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Access token is missing' });
     }
 
-    // Временное решение - пока не проверяем статус
-    // if (user.status !== 'active') {
-    //   return res.status(403).json({ message: 'Учетная запись неактивна' });
-    // }
+    const token = authorization.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const user = await User.findById(decoded.userId);
 
-    req.user = {
-      id: user._id,
-      email: user.email,
-      username: user.username
-    };
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ message: 'Account is not active' });
+    }
+
+    req.user = user;
+    req.userId = user._id.toString();
 
     next();
-  } catch (err) {
-    console.error('Ошибка аутентификации:', err);
-    res.status(401).json({ message: 'Недействительный токен' });
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Access token is invalid or expired' });
   }
 };
 

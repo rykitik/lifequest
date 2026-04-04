@@ -1,157 +1,178 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-// import bcrypt from 'bcryptjs';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const generateAccessToken = (userId) => {
-  return jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const REFRESH_TOKEN_EXPIRES_IN = '7d';
+const REFRESH_COOKIE_NAME = 'refreshToken';
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const createAccessToken = (userId) =>
+  jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  });
+
+const createRefreshToken = (userId) =>
+  jwt.sign({ userId }, process.env.REFRESH_TOKEN_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+  });
+
+const getCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: REFRESH_COOKIE_MAX_AGE,
+  path: '/api/auth',
+});
+
+const getClearCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  path: '/api/auth',
+});
+
+const formatUser = (user) => ({
+  id: user._id.toString(),
+  username: user.username,
+  email: user.email,
+  xp: user.xp,
+  level: user.level,
+  status: user.status,
+});
+
+const sendAuthResponse = async (res, user, statusCode = 200) => {
+  const accessToken = createAccessToken(user._id);
+  const refreshToken = createRefreshToken(user._id);
+
+  user.refreshToken = refreshToken;
+  user.tokenIssuedAt = new Date();
+  user.lastActive = new Date();
+  await user.save();
+
+  res
+    .cookie(REFRESH_COOKIE_NAME, refreshToken, getCookieOptions())
+    .status(statusCode)
+    .json({
+      accessToken,
+      user: formatUser(user),
+    });
 };
-
-const generateRefreshToken = (userId) => {
-  return jwt.sign({ userId }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-};
-
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
 export const register = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const username = req.body.username?.trim();
+    const email = req.body.email?.trim().toLowerCase();
+    const password = req.body.password;
 
-    // Проверка на существующего пользователя
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Пользователь уже существует' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'Username, email, and password are required' });
     }
 
-    // Создание нового пользователя
-    const user = new User({
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
+
+    if (existingUser) {
+      return res.status(409).json({ message: 'User with this email or username already exists' });
+    }
+
+    const user = await User.create({
       username,
       email,
-      password
+      password,
     });
 
-    await user.save();
-
-    // Генерация токенов
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
-
-    // Установка refresh токена в куки
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    // Отправка access токена
-    res.status(201).json({ 
-      accessToken,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email
-      }
-    });
-
+    await sendAuthResponse(res, user, 201);
   } catch (error) {
-    console.error('Ошибка регистрации:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    const user = await User.findOne({ email }).select('+password +refreshToken');
-    if (!user) return res.status(401).json({ message: 'Неверные учетные данные' });
+    const identifier = req.body.identifier?.trim() || req.body.email?.trim();
+    const password = req.body.password;
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(401).json({ message: 'Неверные учетные данные' });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Email or username and password are required' });
+    }
 
-    // Удаляем проверку статуса, пока не внедрим систему статусов
-    // if (user.status !== 'active') {
-    //   return res.status(403).json({ 
-    //     message: 'Учетная запись неактивна',
-    //     code: 'ACCOUNT_INACTIVE' 
-    //   });
-    // }
+    const normalizedIdentifier = identifier.toLowerCase();
+    const user = await User.findOne({
+      $or: [{ email: normalizedIdentifier }, { username: identifier }],
+    }).select('+password +refreshToken');
 
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-    user.refreshToken = refreshToken;
-    user.tokenIssuedAt = Date.now();
-    await user.save();
+    const isPasswordValid = await user.comparePassword(password);
 
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    }).status(200).json({
-      accessToken,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        xp: user.xp,
-        level: user.level,
-        // Добавляем статус по умолчанию
-        status: 'active'
-      }
-    });
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-  } catch (err) {
-    console.error('Ошибка входа:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    if (user.status !== 'active') {
+      return res.status(403).json({ message: 'Account is not active' });
+    }
+
+    await sendAuthResponse(res, user);
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 export const me = async (req, res) => {
+  res.status(200).json({ user: formatUser(req.user) });
+};
+
+export const refresh = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Токен не предоставлен' });
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token is missing' });
     }
 
-    res.json({
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      xp: user.xp,
-      level: user.level,
-      status: 'active'
-    });
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const user = await User.findById(decoded.userId).select('+refreshToken');
 
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(403).json({ message: 'Refresh token is invalid' });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ message: 'Account is not active' });
+    }
+
+    await sendAuthResponse(res, user);
   } catch (error) {
-    console.error('Ошибка в /auth/me:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error('Refresh error:', error);
+    res.status(403).json({ message: 'Refresh token is invalid or expired' });
   }
 };
 
-export const refresh = (req, res) => {
-  const token = req.cookies.refreshToken;
+export const logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.[REFRESH_COOKIE_NAME];
 
-  if (!token) return res.status(401).json({ message: 'Нет токена' });
+    if (refreshToken) {
+      const user = await User.findOne({ refreshToken }).select('+refreshToken');
 
-  jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ message: 'Недействительный refresh' });
+      if (user) {
+        user.refreshToken = undefined;
+        await user.save();
+      }
+    }
 
-    const accessToken = generateAccessToken(decoded.userId);
-    res.json({ accessToken });
-  });
-};
-
-export const logout = (req, res) => {
-  res.clearCookie('refreshToken');
-  res.status(200).json({ message: 'Выход' });
+    res
+      .clearCookie(REFRESH_COOKIE_NAME, getClearCookieOptions())
+      .status(200)
+      .json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 };

@@ -1,102 +1,79 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [accountStatusError, setAccountStatusError] = useState("");
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('error') === 'account_inactive') {
-      setAccountStatusError('Ваш аккаунт неактивен. Обратитесь к администратору.');
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    const result = await login(identifier, password);
+
+    if (result.success) {
+      navigate('/dashboard');
+      return;
     }
-  }, [location]);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setAccountStatusError("");
-
-    try {
-      const result = await login(email, password);
-      if (result.success) {
-        navigate("/dashboard");
-      } else if (result.message.includes('неактивна')) {
-        setAccountStatusError(result.message);
-      } else {
-        setError(result.message);
-      }
-    } catch (err) {
-      setError('Ошибка при входе в систему', err);
-    }
+    setError(result.message);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-xl shadow-md w-full max-w-sm">
-        <h2 className="text-2xl font-bold mb-4 text-center">Вход</h2>
-        
-        {accountStatusError && (
-          <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-            <p>{accountStatusError}</p>
-          </div>
-        )}
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-center text-2xl font-bold">Вход</h2>
 
-        {error && <p className="text-red-500 text-center mb-3">{error}</p>}
+        {error && <p className="mb-3 text-center text-red-500">{error}</p>}
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+            <label htmlFor="identifier" className="mb-1 block text-sm font-medium text-gray-700">
+              Email или username
             </label>
             <input
-              id="email"
-              type="email"
-              placeholder="Ваш email"
-              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="identifier"
+              type="text"
+              placeholder="Ваш email или username"
+              className="w-full rounded-md border p-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-gray-700">
               Пароль
             </label>
             <input
               id="password"
               type="password"
               placeholder="Ваш пароль"
-              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full rounded-md border p-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(event) => setPassword(event.target.value)}
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 
-                      transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className="w-full rounded-md bg-blue-600 p-2 text-white transition duration-200 hover:bg-blue-700"
           >
             Войти
           </button>
         </form>
 
-        <p className="text-sm text-center mt-4 text-gray-600">
-          Нет аккаунта?{" "}
-          <a 
-            href="/register" 
-            className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:rounded-sm"
-          >
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Нет аккаунта?{' '}
+          <Link to="/register" className="text-blue-600 hover:underline">
             Зарегистрироваться
-          </a>
+          </Link>
         </p>
       </div>
     </div>

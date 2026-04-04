@@ -1,66 +1,74 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../api/axios";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
-  const { login } = useAuth();
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const { register } = useAuth();
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await api.post("auth/register", { username, email, password });
-      login(res.data.user, res.data.token);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(err.response?.data?.error || "Ошибка регистрации");
+  const handleRegister = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    const result = await register(username, email, password);
+
+    if (result.success) {
+      navigate('/dashboard');
+      return;
     }
+
+    setError(result.message);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-xl shadow-md w-full max-w-sm">
-        <h2 className="text-2xl font-bold mb-4 text-center">Регистрация</h2>
-        {error && <p className="text-red-500 text-center mb-3">{error}</p>}
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-center text-2xl font-bold">Регистрация</h2>
+
+        {error && <p className="mb-3 text-center text-red-500">{error}</p>}
+
         <form onSubmit={handleRegister} className="space-y-4">
           <input
             type="text"
             placeholder="Имя пользователя"
-            className="w-full p-2 border rounded-md"
+            className="w-full rounded-md border p-2"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(event) => setUsername(event.target.value)}
+            required
           />
           <input
             type="email"
             placeholder="Email"
-            className="w-full p-2 border rounded-md"
+            className="w-full rounded-md border p-2"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
+            required
           />
           <input
             type="password"
             placeholder="Пароль"
-            className="w-full p-2 border rounded-md"
+            className="w-full rounded-md border p-2"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
+            required
           />
           <button
             type="submit"
-            className="w-full bg-green-600 text-white p-2 rounded-md hover:bg-green-700"
+            className="w-full rounded-md bg-green-600 p-2 text-white hover:bg-green-700"
           >
             Зарегистрироваться
           </button>
         </form>
-        <p className="text-sm text-center mt-4">
-          Уже есть аккаунт?{" "}
-          <a href="/login" className="text-blue-600 hover:underline">
+
+        <p className="mt-4 text-center text-sm">
+          Уже есть аккаунт?{' '}
+          <Link to="/login" className="text-blue-600 hover:underline">
             Войти
-          </a>
+          </Link>
         </p>
       </div>
     </div>

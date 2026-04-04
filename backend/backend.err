@@ -1,0 +1,1 @@
+Sat, 04 Apr 2026 19:09:32 GMT express deprecated res.clearCookie: Passing "options.maxAge" is deprecated. In v5.0.0 of Express, this option will be ignored, as res.clearCookie will automatically set cookies to expire immediately. Please update your code to omit this option. at file:\C:\Users\user\Downloads\lifequest\backend\src\controllers\authController.js:161:8
